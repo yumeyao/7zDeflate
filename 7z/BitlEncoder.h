@@ -3,7 +3,7 @@
 #ifndef ZIP7_INC_BITL_ENCODER_H
 #define ZIP7_INC_BITL_ENCODER_H
 
-#include "../Common/OutBuffer.h"
+#include "OutBuffer.h"
 
 class CBitlEncoder
 {
@@ -12,7 +12,7 @@ class CBitlEncoder
   Byte _curByte;
 public:
   bool Create(UInt32 bufSize) { return _stream.Create(bufSize); }
-  void SetStream(ISequentialOutStream *outStream) { _stream.SetStream(outStream); }
+  void SetStream(ISeqOutStreamPtr outStream) { _stream.SetStream(outStream); }
   // unsigned GetBitPosition() const { return (8 - _bitPos); }
   UInt64 GetProcessedSize() const { return _stream.GetProcessedSize() + ((8 - _bitPos + 7) >> 3); }
   void Init()
@@ -21,7 +21,7 @@ public:
     _bitPos = 8;
     _curByte = 0;
   }
-  HRESULT Flush()
+  SRes Flush()
   {
     FlushByte();
     return _stream.Flush();

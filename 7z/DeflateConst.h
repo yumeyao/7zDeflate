@@ -3,6 +3,8 @@
 #ifndef ZIP7_INC_DEFLATE_CONST_H
 #define ZIP7_INC_DEFLATE_CONST_H
 
+#include "7zTypes.h"
+
 namespace NCompress {
 namespace NDeflate {
 

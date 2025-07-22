@@ -1,15 +1,9 @@
-// DeflateEncoder.cpp
+// DeflateEncoder.cc
 
-#include "StdAfx.h"
-
-#include "../../../C/Alloc.h"
-#include "../../../C/HuffEnc.h"
-
-#include "../../Common/ComTry.h"
-
-#include "../Common/CWrappers.h"
-
+#include <stdlib.h>
+#include <string.h>
 #include "DeflateEncoder.h"
+#include "HuffEnc.h"
 
 #undef NO_INLINE
 
@@ -161,18 +155,18 @@ CCoder::CCoder(bool deflate64Mode):
   MatchFinder_Construct(&_lzInWindow);
 }
 
-HRESULT CCoder::Create()
+SRes CCoder::Create()
 {
   // COM_TRY_BEGIN
   if (!m_Values)
   {
-    m_Values = (CCodeValue *)MyAlloc(kMaxUncompressedBlockSize * sizeof(CCodeValue));
+    m_Values = (CCodeValue *)malloc(kMaxUncompressedBlockSize * sizeof(CCodeValue));
     if (!m_Values)
       return E_OUTOFMEMORY;
   }
   if (!m_Tables)
   {
-    m_Tables = (CTables *)MyAlloc(kNumTables * sizeof(CTables));
+    m_Tables = (CTables *)malloc(kNumTables * sizeof(CTables));
     if (!m_Tables)
       return E_OUTOFMEMORY;
   }
@@ -181,7 +175,7 @@ HRESULT CCoder::Create()
   {
     if (!m_OnePosMatchesMemory)
     {
-      m_OnePosMatchesMemory = (UInt16 *)::MidAlloc(kMatchArraySize * sizeof(UInt16));
+      m_OnePosMatchesMemory = (UInt16 *)::malloc(kMatchArraySize * sizeof(UInt16));
       if (!m_OnePosMatchesMemory)
         return E_OUTOFMEMORY;
     }
@@ -190,7 +184,7 @@ HRESULT CCoder::Create()
   {
     if (!m_DistanceMemory)
     {
-      m_DistanceMemory = (UInt16 *)MyAlloc((kMatchMaxLen + 2) * 2 * sizeof(UInt16));
+      m_DistanceMemory = (UInt16 *)malloc((kMatchMaxLen + 2) * 2 * sizeof(UInt16));
       if (!m_DistanceMemory)
         return E_OUTOFMEMORY;
       m_MatchDistances = m_DistanceMemory;
@@ -205,7 +199,7 @@ HRESULT CCoder::Create()
     if (!MatchFinder_Create(&_lzInWindow,
         m_Deflate64Mode ? kHistorySize64 : kHistorySize32,
         kNumOpts + kMaxUncompressedBlockSize,
-        m_NumFastBytes, m_MatchMaxLen - m_NumFastBytes, &g_AlignedAlloc))
+        m_NumFastBytes, m_MatchMaxLen - m_NumFastBytes))
       return E_OUTOFMEMORY;
     if (!m_OutStream.Create(1 << 20))
       return E_OUTOFMEMORY;
@@ -213,49 +207,22 @@ HRESULT CCoder::Create()
   if (m_MatchFinderCycles != 0)
     _lzInWindow.cutValue = m_MatchFinderCycles;
   m_Created = true;
-  return S_OK;
+  return SZ_OK;
   // COM_TRY_END
 }
 
-HRESULT CCoder::BaseSetEncoderProperties2(const PROPID *propIDs, const PROPVARIANT *coderProps, UInt32 numProps)
-{
-  CEncProps props;
-  for (UInt32 i = 0; i < numProps; i++)
-  {
-    const PROPVARIANT &prop = coderProps[i];
-    PROPID propID = propIDs[i];
-    if (propID >= NCoderPropID::kReduceSize)
-      continue;
-    if (prop.vt != VT_UI4)
-      return E_INVALIDARG;
-    UInt32 v = (UInt32)prop.ulVal;
-    switch (propID)
-    {
-      case NCoderPropID::kNumPasses: props.numPasses = v; break;
-      case NCoderPropID::kNumFastBytes: props.fb = (int)v; break;
-      case NCoderPropID::kMatchFinderCycles: props.mc = v; break;
-      case NCoderPropID::kAlgorithm: props.algo = (int)v; break;
-      case NCoderPropID::kLevel: props.Level = (int)v; break;
-      case NCoderPropID::kNumThreads: break;
-      default: return E_INVALIDARG;
-    }
-  }
-  SetProps(&props);
-  return S_OK;
-}
-  
 void CCoder::Free()
 {
-  ::MidFree(m_OnePosMatchesMemory); m_OnePosMatchesMemory = NULL;
-  ::MyFree(m_DistanceMemory); m_DistanceMemory = NULL;
-  ::MyFree(m_Values); m_Values = NULL;
-  ::MyFree(m_Tables); m_Tables = NULL;
+  ::free(m_OnePosMatchesMemory); m_OnePosMatchesMemory = NULL;
+  ::free(m_DistanceMemory); m_DistanceMemory = NULL;
+  ::free(m_Values); m_Values = NULL;
+  ::free(m_Tables); m_Tables = NULL;
 }
 
 CCoder::~CCoder()
 {
   Free();
-  MatchFinder_Free(&_lzInWindow, &g_AlignedAlloc);
+  MatchFinder_Free(&_lzInWindow);
 }
 
 NO_INLINE void CCoder::GetMatches()
@@ -965,9 +932,8 @@ void CCoder::CodeBlock(unsigned tableIndex, bool finalBlock)
   }
 }
 
-
-HRESULT CCoder::CodeReal(ISequentialInStream *inStream, ISequentialOutStream *outStream,
-    const UInt64 * /* inSize */ , const UInt64 * /* outSize */ , ICompressProgressInfo *progress)
+SRes CCoder::CodeReal(ISeqInStreamPtr inStream, ISeqOutStreamPtr outStream,
+      const UInt64 * /* inSize */, const UInt64 * /* outSize */)
 {
   m_CheckStatic = (m_NumPasses != 1 || m_NumDivPasses != 1);
   m_IsMultiPass = (m_CheckStatic || (m_NumPasses != 1 || m_NumDivPasses != 1));
@@ -976,9 +942,7 @@ HRESULT CCoder::CodeReal(ISequentialInStream *inStream, ISequentialOutStream *ou
     if default MatchFinder mode was not STREAM_MODE) */
   // MatchFinder_SET_STREAM_MODE(&_lzInWindow);
 
-  CSeqInStreamWrap _seqInStream;
-  _seqInStream.Init(inStream);
-  MatchFinder_SET_STREAM(&_lzInWindow, &_seqInStream.vt)
+  MatchFinder_SET_STREAM(&_lzInWindow, inStream)
 
   RINOK(Create())
 
@@ -1004,42 +968,19 @@ HRESULT CCoder::CodeReal(ISequentialInStream *inStream, ISequentialOutStream *ou
     GetBlockPrice(1, m_NumDivPasses);
     CodeBlock(1, Inline_MatchFinder_GetNumAvailableBytes(&_lzInWindow) == 0);
     nowPos += m_Tables[1].BlockSizeRes;
-    if (progress != NULL)
-    {
-      UInt64 packSize = m_OutStream.GetProcessedSize();
-      RINOK(progress->SetRatioInfo(&nowPos, &packSize))
-    }
   }
   while (Inline_MatchFinder_GetNumAvailableBytes(&_lzInWindow) != 0);
-  
-  if (_seqInStream.Res != S_OK)
-    return _seqInStream.Res;
 
   if (_lzInWindow.result != SZ_OK)
-    return SResToHRESULT(_lzInWindow.result);
+    return _lzInWindow.result;
   return m_OutStream.Flush();
 }
 
-HRESULT CCoder::BaseCode(ISequentialInStream *inStream, ISequentialOutStream *outStream,
-    const UInt64 *inSize, const UInt64 *outSize, ICompressProgressInfo *progress)
+SRes CCoder::BaseCode(ISeqInStreamPtr inStream, ISeqOutStreamPtr outStream,
+      const UInt64 *inSize, const UInt64 *outSize)
 {
-  try { return CodeReal(inStream, outStream, inSize, outSize, progress); }
-  catch(const COutBufferException &e) { return e.ErrorCode; }
-  catch(...) { return E_FAIL; }
+  try { return CodeReal(inStream, outStream, inSize, outSize); }
+  catch(...) { return SZ_ERROR_FAIL; }
 }
-
-Z7_COM7F_IMF(CCOMCoder::Code(ISequentialInStream *inStream, ISequentialOutStream *outStream,
-    const UInt64 *inSize, const UInt64 *outSize, ICompressProgressInfo *progress))
-  { return BaseCode(inStream, outStream, inSize, outSize, progress); }
-
-Z7_COM7F_IMF(CCOMCoder::SetCoderProperties(const PROPID *propIDs, const PROPVARIANT *props, UInt32 numProps))
-  { return BaseSetEncoderProperties2(propIDs, props, numProps); }
-
-Z7_COM7F_IMF(CCOMCoder64::Code(ISequentialInStream *inStream, ISequentialOutStream *outStream,
-    const UInt64 *inSize, const UInt64 *outSize, ICompressProgressInfo *progress))
-  { return BaseCode(inStream, outStream, inSize, outSize, progress); }
-
-Z7_COM7F_IMF(CCOMCoder64::SetCoderProperties(const PROPID *propIDs, const PROPVARIANT *props, UInt32 numProps))
-  { return BaseSetEncoderProperties2(propIDs, props, numProps); }
 
 }}}

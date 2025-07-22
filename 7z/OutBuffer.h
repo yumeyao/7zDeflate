@@ -3,16 +3,7 @@
 #ifndef ZIP7_INC_OUT_BUFFER_H
 #define ZIP7_INC_OUT_BUFFER_H
 
-#include "../IStream.h"
-#include "../../Common/MyCom.h"
-#include "../../Common/MyException.h"
-
-#ifndef Z7_NO_EXCEPTIONS
-struct COutBufferException: public CSystemException
-{
-  COutBufferException(HRESULT errorCode): CSystemException(errorCode) {}
-};
-#endif
+#include "7zTypes.h"
 
 class COutBuffer
 {
@@ -22,16 +13,14 @@ protected:
   UInt32 _limitPos;
   UInt32 _streamPos;
   UInt32 _bufSize;
-  ISequentialOutStream *_stream;
+  ISeqOutStreamPtr _stream;
   UInt64 _processedSize;
   Byte  *_buf2;
   bool _overDict;
 
-  HRESULT FlushPart() throw();
+  SRes FlushPart() throw();
 public:
-  #ifdef Z7_NO_EXCEPTIONS
-  HRESULT ErrorCode;
-  #endif
+  SRes ErrorCode;
 
   COutBuffer(): _buf(NULL), _pos(0), _stream(NULL), _buf2(NULL) {}
   ~COutBuffer() { Free(); }
@@ -40,9 +29,9 @@ public:
   void Free() throw();
 
   void SetMemStream(Byte *buf) { _buf2 = buf; }
-  void SetStream(ISequentialOutStream *stream) { _stream = stream; }
+  void SetStream(ISeqOutStreamPtr stream) { _stream = stream; }
   void Init() throw();
-  HRESULT Flush() throw();
+  SRes Flush() throw();
   void FlushWithCheck();
 
   Z7_FORCE_INLINE

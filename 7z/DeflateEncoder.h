@@ -3,12 +3,7 @@
 #ifndef ZIP7_INC_DEFLATE_ENCODER_H
 #define ZIP7_INC_DEFLATE_ENCODER_H
 
-#include "../../../C/LzFind.h"
-
-#include "../../Common/MyCom.h"
-
-#include "../ICoder.h"
-
+#include "LzFind.h"
 #include "BitlEncoder.h"
 #include "DeflateConst.h"
 
@@ -150,7 +145,7 @@ public:
   void SetPrices(const CLevels &levels);
   void WriteBlock();
 
-  HRESULT Create();
+  SRes Create();
   void Free();
 
   void WriteStoreBlock(UInt32 blockSize, UInt32 additionalOffset, bool finalBlock);
@@ -166,36 +161,11 @@ public:
   CCoder(bool deflate64Mode = false);
   ~CCoder();
 
-  HRESULT CodeReal(ISequentialInStream *inStream, ISequentialOutStream *outStream,
-      const UInt64 *inSize, const UInt64 *outSize, ICompressProgressInfo *progress);
+  SRes CodeReal(ISeqInStreamPtr inStream, ISeqOutStreamPtr outStream,
+      const UInt64 *inSize, const UInt64 *outSize);
 
-  HRESULT BaseCode(ISequentialInStream *inStream, ISequentialOutStream *outStream,
-      const UInt64 *inSize, const UInt64 *outSize, ICompressProgressInfo *progress);
-
-  HRESULT BaseSetEncoderProperties2(const PROPID *propIDs, const PROPVARIANT *props, UInt32 numProps);
-};
-
-
-class CCOMCoder Z7_final:
-  public ICompressCoder,
-  public ICompressSetCoderProperties,
-  public CMyUnknownImp,
-  public CCoder
-{
-  Z7_IFACES_IMP_UNK_2(ICompressCoder, ICompressSetCoderProperties)
-public:
-  CCOMCoder(): CCoder(false) {}
-};
-
-class CCOMCoder64 Z7_final:
-  public ICompressCoder,
-  public ICompressSetCoderProperties,
-  public CMyUnknownImp,
-  public CCoder
-{
-  Z7_IFACES_IMP_UNK_2(ICompressCoder, ICompressSetCoderProperties)
-public:
-  CCOMCoder64(): CCoder(true) {}
+  SRes BaseCode(ISeqInStreamPtr inStream, ISeqOutStreamPtr outStream,
+      const UInt64 *inSize, const UInt64 *outSize);
 };
 
 }}}

@@ -65,24 +65,24 @@
 #define HASH_ZIP_CALC hv = ((cur[2] | ((UInt32)cur[0] << 8)) ^ p->crc[cur[1]]) & 0xFFFF;
 
 
-static void LzInWindow_Free(CMatchFinder *p, ISzAllocPtr alloc)
+static void LzInWindow_Free(CMatchFinder *p)
 {
   // if (!p->directInput)
   {
-    ISzAlloc_Free(alloc, p->bufBase);
+    free(p->bufBase);
     p->bufBase = NULL;
   }
 }
 
 
-static int LzInWindow_Create2(CMatchFinder *p, UInt32 blockSize, ISzAllocPtr alloc)
+static int LzInWindow_Create2(CMatchFinder *p, UInt32 blockSize)
 {
   if (blockSize == 0)
     return 0;
   if (!p->bufBase || p->blockSize != blockSize)
   {
     // size_t blockSizeT;
-    LzInWindow_Free(p, alloc);
+    LzInWindow_Free(p);
     p->blockSize = blockSize;
     // blockSizeT = blockSize;
     
@@ -101,7 +101,7 @@ static int LzInWindow_Create2(CMatchFinder *p, UInt32 blockSize, ISzAllocPtr all
     #endif
     */
     
-    p->bufBase = (Byte *)ISzAlloc_Alloc(alloc, blockSize);
+    p->bufBase = (Byte *)malloc(blockSize);
     // printf("\nbufferBase = %p\n", p->bufBase);
     // return 0; // for debug
   }
@@ -257,24 +257,24 @@ void MatchFinder_Construct(CMatchFinder *p)
 
 #undef kCrcPoly
 
-static void MatchFinder_FreeThisClassMemory(CMatchFinder *p, ISzAllocPtr alloc)
+static void MatchFinder_FreeThisClassMemory(CMatchFinder *p)
 {
-  ISzAlloc_Free(alloc, p->hash);
+  free(p->hash);
   p->hash = NULL;
 }
 
-void MatchFinder_Free(CMatchFinder *p, ISzAllocPtr alloc)
+void MatchFinder_Free(CMatchFinder *p)
 {
-  MatchFinder_FreeThisClassMemory(p, alloc);
-  LzInWindow_Free(p, alloc);
+  MatchFinder_FreeThisClassMemory(p);
+  LzInWindow_Free(p);
 }
 
-static CLzRef* AllocRefs(size_t num, ISzAllocPtr alloc)
+static CLzRef* AllocRefs(size_t num)
 {
   const size_t sizeInBytes = (size_t)num * sizeof(CLzRef);
   if (sizeInBytes / sizeof(CLzRef) != num)
     return NULL;
-  return (CLzRef *)ISzAlloc_Alloc(alloc, sizeInBytes);
+  return (CLzRef *)malloc(sizeInBytes);
 }
 
 #if (kBlockSizeReserveMin < kBlockSizeAlign * 2)
@@ -374,8 +374,7 @@ static UInt32 MatchFinder_GetHashMask(CMatchFinder *p, UInt32 hs)
 
 
 int MatchFinder_Create(CMatchFinder *p, UInt32 historySize,
-    UInt32 keepAddBufferBefore, UInt32 matchMaxLen, UInt32 keepAddBufferAfter,
-    ISzAllocPtr alloc)
+    UInt32 keepAddBufferBefore, UInt32 matchMaxLen, UInt32 keepAddBufferAfter)
 {
   /* we need one additional byte in (p->keepSizeBefore),
      since we use MoveBlock() after (p->pos++) and before dictionary using */
@@ -391,7 +390,7 @@ int MatchFinder_Create(CMatchFinder *p, UInt32 historySize,
 
   if (p->directInput)
     p->blockSize = 0;
-  if (p->directInput || LzInWindow_Create2(p, GetBlockSize(p, historySize), alloc))
+  if (p->directInput || LzInWindow_Create2(p, GetBlockSize(p, historySize)))
   {
     size_t hashSizeSum;
     {
@@ -480,9 +479,9 @@ int MatchFinder_Create(CMatchFinder *p, UInt32 historySize,
       if (p->hash && p->numRefs >= newSize)
         return 1;
       
-      MatchFinder_FreeThisClassMemory(p, alloc);
+      MatchFinder_FreeThisClassMemory(p);
       p->numRefs = newSize;
-      p->hash = AllocRefs(newSize, alloc);
+      p->hash = AllocRefs(newSize);
       
       if (p->hash)
       {
@@ -492,7 +491,7 @@ int MatchFinder_Create(CMatchFinder *p, UInt32 historySize,
     }
   }
 
-  MatchFinder_Free(p, alloc);
+  MatchFinder_Free(p);
   return 0;
 }
 

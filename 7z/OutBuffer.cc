@@ -1,9 +1,6 @@
-// OutBuffer.cpp
+// OutBuffer.cc
 
-#include "StdAfx.h"
-
-#include "../../../C/Alloc.h"
-
+#include <stdlib.h>
 #include "OutBuffer.h"
 
 bool COutBuffer::Create(UInt32 bufSize) throw()
@@ -15,13 +12,13 @@ bool COutBuffer::Create(UInt32 bufSize) throw()
     return true;
   Free();
   _bufSize = bufSize;
-  _buf = (Byte *)::MidAlloc(bufSize);
+  _buf = (Byte *)::malloc(bufSize);
   return (_buf != NULL);
 }
 
 void COutBuffer::Free() throw()
 {
-  ::MidFree(_buf);
+  ::free(_buf);
   _buf = NULL;
 }
 
@@ -32,9 +29,7 @@ void COutBuffer::Init() throw()
   _pos = 0;
   _processedSize = 0;
   _overDict = false;
-  #ifdef Z7_NO_EXCEPTIONS
-  ErrorCode = S_OK;
-  #endif
+  ErrorCode = SZ_OK;
 }
 
 UInt64 COutBuffer::GetProcessedSize() const throw()
@@ -46,28 +41,22 @@ UInt64 COutBuffer::GetProcessedSize() const throw()
 }
 
 
-HRESULT COutBuffer::FlushPart() throw()
+SRes COutBuffer::FlushPart() throw()
 {
   // _streamPos < _bufSize
   UInt32 size = (_streamPos >= _pos) ? (_bufSize - _streamPos) : (_pos - _streamPos);
-  HRESULT result = S_OK;
-  #ifdef Z7_NO_EXCEPTIONS
+  SRes result = SZ_OK;
   result = ErrorCode;
-  #endif
   if (_buf2)
   {
     memcpy(_buf2, _buf + _streamPos, size);
     _buf2 += size;
   }
 
-  if (_stream
-      #ifdef Z7_NO_EXCEPTIONS
-      && (ErrorCode == S_OK)
-      #endif
-     )
+  if (_stream && (ErrorCode == SZ_OK))
   {
-    UInt32 processedSize = 0;
-    result = _stream->Write(_buf + _streamPos, size, &processedSize);
+    UInt32 processedSize = ISeqOutStream_Write(_stream, _buf + _streamPos, size);
+    result = processedSize == size ? SZ_OK : SZ_ERROR_WRITE;
     size = processedSize;
   }
   _streamPos += size;
@@ -83,29 +72,22 @@ HRESULT COutBuffer::FlushPart() throw()
   return result;
 }
 
-HRESULT COutBuffer::Flush() throw()
+SRes COutBuffer::Flush() throw()
 {
-  #ifdef Z7_NO_EXCEPTIONS
-  if (ErrorCode != S_OK)
+  if (ErrorCode != SZ_OK)
     return ErrorCode;
-  #endif
 
   while (_streamPos != _pos)
   {
-    const HRESULT result = FlushPart();
-    if (result != S_OK)
+    const SRes result = FlushPart();
+    if (result != SZ_OK)
       return result;
   }
-  return S_OK;
+  return SZ_OK;
 }
 
 void COutBuffer::FlushWithCheck()
 {
-  const HRESULT result = Flush();
-  #ifdef Z7_NO_EXCEPTIONS
+  const SRes result = Flush();
   ErrorCode = result;
-  #else
-  if (result != S_OK)
-    throw COutBufferException(result);
-  #endif
 }
