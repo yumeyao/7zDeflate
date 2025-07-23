@@ -2,6 +2,7 @@
 #define ZIP7_7Z_DEFLATE_H
 
 #include <stddef.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,6 +91,7 @@ enum Deflate7zMetaFS {
 
 /* return 0 for success, outsize is set to really compressed size */
 int InMemoryDeflate7z(struct DeflateEncoder*, struct Deflate7zMeta meta, const void* indata, size_t insize, void* outdata, size_t* outsize);
+int FileDeflate7z(struct DeflateEncoder*, struct Deflate7zMeta meta, FILE* infile, FILE* outfile);
 
 #ifdef __cplusplus
 }

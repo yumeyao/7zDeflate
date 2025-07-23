@@ -80,6 +80,31 @@ struct MemoryStream : ISeqInStream_, ISeqOutStream_ {
     }
 };
 
+struct FileStream : ISeqInStream_, ISeqOutStream_ {
+    FileStream(FILE* f) : ISeqInStream_((ISeqInStream_){_Read}), ISeqOutStream_((ISeqOutStream_){_Write}), file(f), offset(0) {}
+    ~FileStream() { if (!ferror(file)) fflush(file); }
+    FILE* file;
+    size_t offset;
+    SRes Read(void *buf, size_t *bufsize) {
+        size_t size = *bufsize;
+        size_t sz = fread(buf, 1, size, file);
+        *bufsize = sz;
+        offset += sz;
+        return size == sz ? SZ_OK : feof(file) ? SZ_OK : SZ_ERROR_READ;
+    }
+    size_t Write(const void *buf, size_t bufsize) {
+        size_t sz = fwrite(buf, 1, bufsize, file);
+        offset += sz;
+        return sz;
+    }
+    static SRes _Read(ISeqInStreamPtr p, void *buf, size_t *size) {
+        return const_cast<FileStream*>(static_cast<const FileStream*>(p))->Read(buf, size);
+    }
+    static size_t _Write(ISeqOutStreamPtr p, const void *buf, size_t size) {
+        return const_cast<FileStream*>(static_cast<const FileStream*>(p))->Write(buf, size);
+    }
+};
+
 struct GZipHeader {
     unsigned char _0;
     unsigned char _1;
@@ -172,6 +197,34 @@ int InMemoryDeflate7z(struct DeflateEncoder* p, struct Deflate7zMeta meta, const
             outStream.Write(&footer, sizeof(footer));
         }
         *outsize = outStream.offset;
+    }
+
+    return ret;
+}
+
+int FileDeflate7z(struct DeflateEncoder* p, struct Deflate7zMeta meta, FILE* infile, FILE* outfile) {
+    if (!p || !infile || !outfile) return SZ_ERROR_PARAM;
+    FileStream inStream(infile);
+    FileStream outStream(outfile);
+    UInt64 insize1, outsize1;
+
+    if (p->params.Format == DEFLATE_7Z_GZIP) {
+        GZipHeader header = GetGZipHeader(p->params, meta);
+        outStream.Write(&header, sizeof(header));
+    } else if (p->params.Format == DEFLATE_7Z_ZLIB) {
+        ZLibHeader header = GetZLibHeader(p->params, meta);
+        outStream.Write(&header, sizeof(header));
+    }
+
+    int ret = p->coder.BaseCode(&inStream, &outStream, &insize1, &outsize1);
+    if (ret == 0) {
+        if (p->params.Format == DEFLATE_7Z_GZIP) {
+            GZipFooter footer = {(UInt32)p->coder.m_HashValue, (UInt32)inStream.offset};
+            outStream.Write(&footer, sizeof(footer));
+        } else if (p->params.Format == DEFLATE_7Z_ZLIB) {
+            ZLibFooter footer = {Z7_BSWAP32((UInt32)p->coder.m_HashValue)};
+            outStream.Write(&footer, sizeof(footer));
+        }
     }
 
     return ret;
