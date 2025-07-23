@@ -124,6 +124,10 @@ public:
 
   UInt32 m_MatchFinderCycles;
 
+  typedef unsigned long (*HashFunc)(unsigned long, const unsigned char*, unsigned int);
+  unsigned long m_HashValue;
+  HashFunc m_Hash;
+
   void GetMatches();
   void MovePos(UInt32 num);
   UInt32 Backward(UInt32 &backRes, UInt32 cur);

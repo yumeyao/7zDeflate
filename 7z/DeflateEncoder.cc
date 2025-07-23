@@ -893,6 +893,11 @@ void CCoder::CodeBlock(unsigned tableIndex, bool finalBlock)
   }
   else
   {
+    if (m_Hash)
+    {
+      const Byte *data = Inline_MatchFinder_GetPointerToCurrentPos(&_lzInWindow)- m_AdditionalOffset;
+      m_HashValue = m_Hash(m_HashValue, data, t.BlockSizeRes);
+    }
     if (t.StoreMode)
       WriteStoreBlock(t.BlockSizeRes, m_AdditionalOffset, finalBlock);
     else
@@ -945,6 +950,8 @@ SRes CCoder::CodeReal(ISeqInStreamPtr inStream, ISeqOutStreamPtr outStream,
   MatchFinder_SET_STREAM(&_lzInWindow, inStream)
 
   RINOK(Create())
+
+  if (m_Hash) m_HashValue = m_Hash(0L, NULL, 0);
 
   m_ValueBlockSize = (7 << 10) + (1 << 12) * m_NumDivPasses;
 
