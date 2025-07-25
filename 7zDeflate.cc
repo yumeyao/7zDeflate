@@ -6,13 +6,13 @@
 
 using namespace NCompress::NDeflate::NEncoder;
 
-struct DeflateEncoder {
+struct _Deflate7zEncoder {
     CCoder coder;
-    struct Deflate7zParams params;
+    Deflate7zParams params;
 };
 
-struct DeflateEncoder* CreateDeflate7zEncoder(struct Deflate7zParams params, unsigned long (*hash)(unsigned long, const unsigned char*, unsigned int)) {
-    struct DeflateEncoder* p = NULL;
+Deflate7zEncoder* Deflate7zCreateEncoder(Deflate7zParams params, unsigned long (*hash)(unsigned long, const unsigned char*, unsigned int)) {
+    Deflate7zEncoder* p = NULL;
     switch (params.Format) {
     case DEFLATE_7Z_GZIP: case DEFLATE_7Z_ZLIB:
         if (!hash) return p;  /* fall through */
@@ -24,7 +24,7 @@ struct DeflateEncoder* CreateDeflate7zEncoder(struct Deflate7zParams params, uns
     /* call it once, if it's not working, crash here */
     unsigned long x;
     if (hash) x = hash(0L, NULL, 0);
-    p = (DeflateEncoder*)malloc(sizeof(*p));
+    p = (Deflate7zEncoder*)malloc(sizeof(*p));
     if (p) {
         new (&p->coder) NCompress::NDeflate::NEncoder::CCoder();
         p->params = params;
@@ -45,7 +45,7 @@ struct DeflateEncoder* CreateDeflate7zEncoder(struct Deflate7zParams params, uns
     return p;
 }
 
-void DestroyDeflate7zEncoder(struct DeflateEncoder* p) {
+void Deflate7zDestroyEncoder(Deflate7zEncoder* p) {
     if (p) {
         p->coder.~CCoder();
         free(p);
@@ -120,7 +120,7 @@ struct GZipFooter {
     UInt32 size;
 };
 
-struct GZipHeader GetGZipHeader(struct Deflate7zParams params, struct Deflate7zMeta meta) {
+struct GZipHeader GetGZipHeader(Deflate7zParams params, Deflate7zMeta meta) {
     static const unsigned char kHostOS =
 #ifdef _WIN32
         DEFLATE_7Z_GZIP_FS_FAT;
@@ -147,7 +147,7 @@ struct ZLibHeader {
     unsigned char _1;
 };
 
-struct ZLibHeader GetZLibHeader(struct Deflate7zParams params, struct Deflate7zMeta meta) {
+struct ZLibHeader GetZLibHeader(Deflate7zParams params, Deflate7zMeta meta) {
     ZLibHeader header;
     unsigned char flg;
     unsigned rm;
@@ -173,7 +173,7 @@ struct ZLibFooter {
     UInt32 adler;
 };
 
-int InMemoryDeflate7z(struct DeflateEncoder* p, struct Deflate7zMeta meta, const void* indata, size_t insize, void* outdata, size_t* outsize) {
+int Deflate7zInMemoryEx(Deflate7zEncoder* p, Deflate7zMeta meta, const void* indata, size_t insize, void* outdata, size_t* outsize) {
     if (!p || !indata || !outdata) return SZ_ERROR_PARAM;
     MemoryStream inStream((void*)indata, insize);
     MemoryStream outStream(outdata, *outsize);
@@ -202,7 +202,7 @@ int InMemoryDeflate7z(struct DeflateEncoder* p, struct Deflate7zMeta meta, const
     return ret;
 }
 
-int FileDeflate7z(struct DeflateEncoder* p, struct Deflate7zMeta meta, FILE* infile, FILE* outfile) {
+int Deflate7zFileStreamEx(Deflate7zEncoder* p, Deflate7zMeta meta, FILE* infile, FILE* outfile) {
     if (!p || !infile || !outfile) return SZ_ERROR_PARAM;
     FileStream inStream(infile);
     FileStream outStream(outfile);
